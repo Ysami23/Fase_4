@@ -12,12 +12,17 @@ class Entidad(ABC):
 class Cliente(Entidad):
     def __init__(self, identificador, nombre, correo, contacto):
         super().__init__(identificador)
-        if not nombre.strip():
-            raise ValueError("El nombre no puede estar vacío")
-        if "@" not in correo or "." not in correo:
+        if not isinstance(nombre, str) or not nombre.strip():
+            raise ValueError("El nombre debe ser un texto valido")
+            
+        if not isinstance(correo, str) or "@" not in correo or "." not in correo:
             raise ValueError("El correo no es válido")
+            
+        if not isinstance(contacto, str):
+            raise ValueError("El contacti tiene texto")    
         if not contacto.isdigit() or len(contacto) != 10:
             raise ValueError("El contacto debe tener 10 dígitos")
+            
         self.__nombre = nombre
         self.__correo = correo
         self.__contacto = contacto
