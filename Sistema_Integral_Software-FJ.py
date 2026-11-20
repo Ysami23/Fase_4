@@ -3,7 +3,7 @@ import math
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-#excepciones personaliizadas
+# Excepciones personaliizadas
 class ErrorDisponibilidad(Exception):
     pass
 class ErrorReserva(Exception):
@@ -217,7 +217,6 @@ class Reserva:
     def calcular_costo(self):
         return self.__servicio.calcular_costo(self.__cantidad)
 
-    
     def confirmar_reserva(self):
 
         if self.__estado == "Cancelada":
@@ -225,7 +224,6 @@ class Reserva:
 
         if self.__estado == "Confirmada":
             raise ErrorReserva("La reserva ya está confirmada")
-
         try:
             # Verificar disponibilidad antes de confirmar
             self.__servicio.validar_disponibilidad()
@@ -239,7 +237,6 @@ class Reserva:
 
         self.__estado = "Confirmada"
         return costo
-
 
     def cancelar_reserva(self):
         if self.__estado == "Cancelada":
