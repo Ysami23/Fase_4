@@ -324,236 +324,133 @@ class Reserva:
             f"Servicio: {self.__servicio.nombre}\n"
             f"Cantidad: {self.__cantidad}\n"
             f"Estado: {self.__estado}")
+# Clase AdministradorSistema
+class AdministradorSistema:
 
-    # ------------------------------------------------------------------
-    # [NUEVO] Propiedades de solo lectura (encapsulación) y procesamiento
-    # ------------------------------------------------------------------
-    @property
-    def codigo(self):
-        return self.__codigo
+    def _init_(self):
+        self.__clientes = []
+        self.__servicios = []
+        self.__reservas = []
 
-    @property
-    def estado(self):
-        return self.__estado
+    # Registrar clientes
+    def registrar_cliente(self, cliente):
 
-    @property
-    def costo_total(self):
-        return self.__costo_total
+        if not isinstance(cliente, Cliente):
+            raise ValueError("Debe ingresar un cliente válido")
 
-    def procesar(self, descuento=None, impuesto=Servicio.IVA_DEFECTO):
-        """Calcula el costo final (con descuento e IVA) y deja la reserva 'Procesada'."""
-        if self.__estado != "Confirmada":                 # solo se procesa lo ya confirmado
-            raise ErrorReserva(f"Solo se procesa una reserva Confirmada (estado actual: {self.__estado})")
-        try:
-            costo = self.__servicio.calcular_costo_final(
-                self.__cantidad, impuesto=impuesto, descuento=descuento)
-        except ErrorCalculo as error:
-            # ENCADENAMIENTO: se conserva el error original con 'from'
-            raise ErrorReserva(f"No se pudo procesar la reserva {self.__codigo}") from error
-        else:                                             # se ejecuta SOLO si no hubo error
-            self.__costo_total = costo
-            self.__estado = "Procesada"
-            return costo
-        finally:                                          # se ejecuta SIEMPRE
-            registrar_evento(f"Intento de procesar la reserva {self.__codigo} (estado: {self.__estado})")
+        for registrado in self.__clientes:
+            if registrado.identificador == cliente.identificador:
+                raise ValueError("Ya existe un cliente con ese identificador")
 
-    def mostrar_info(self):
-        return (f"Reserva: {self.__codigo}\n"
-                f"{self.__cliente.mostrar_info()}\n"
-                f"Servicio: {self.__servicio.nombre}\n"
-                f"Cantidad: {self.__cantidad}\n"
-                f"Estado: {self.__estado}")
-
-
-# ======================================================================
-# [NUEVO] PASO 1: ADMINISTRACIÓN DEL SISTEMA
-# ======================================================================
-class GestorSistema:
-    """Administra clientes, servicios y reservas en listas internas (sin base de datos)."""
-
-    # Errores que el sistema espera y controla
-    ERRORES_CONTROLADOS = (ErrorDisponibilidad, ErrorReserva, ErrorCalculo,
-                           ErrorRegistro, ErrorParametros, ValueError)
-
-    TIPOS_SERVICIO = {"sala": ReservaSala, "equipo": AlquilerEquipo, "asesoria": AsesoriaEspecializada}
-
-    def __init__(self):
-        self.__clientes = []          # lista interna de Cliente
-        self.__servicios = []         # lista interna de Servicio
-        self.__reservas = []          # lista interna de Reserva
-        self.__exitosas = 0           # contador de operaciones correctas
-        self.__fallidas = 0           # contador de operaciones con error
-
-    # ---------- ejecutor central: mantiene el sistema estable ----------
-    def _ejecutar(self, descripcion, funcion, *args, **kwargs):
-        """Ejecuta una operación; si falla registra el error y devuelve None (nunca se cae)."""
-        try:
-            resultado = funcion(*args, **kwargs)
-        except self.ERRORES_CONTROLADOS as error:         # errores esperados
-            self.__fallidas += 1
-            registrar_error(error)
-            print(f"   ✘ {descripcion}: {error}")
-            return None
-        except Exception as error:                        # errores inesperados: tampoco detienen el programa
-            self.__fallidas += 1
-            registrar_error(error)
-            print(f"   ✘ {descripcion}: error inesperado ({type(error).__name__})")
-            return None
-        else:                                             # solo si todo salió bien
-            self.__exitosas += 1
-            registrar_evento(f"{descripcion} - OK")
-            print(f"   ✔ {descripcion}")
-            return resultado
-        finally:                                          # siempre se ejecuta
-            registrar_evento(f"Fin de la operación: {descripcion}")
-
-    # ---------- búsquedas ----------
-    @staticmethod
-    def _buscar(lista, codigo, nombre):
-        """Busca por código/identificador; si no existe lanza ErrorRegistro."""
-        for elemento in lista:
-            id_elemento = elemento.identificador if hasattr(elemento, "identificador") else elemento.codigo
-            if id_elemento == codigo:
-                return elemento
-        raise ErrorRegistro(f"{nombre} '{codigo}' no existe")
-
-    @staticmethod
-    def _existe(lista, codigo):
-        """True si ya hay un elemento con ese código/identificador."""
-        return any((e.identificador if hasattr(e, "identificador") else e.codigo) == codigo for e in lista)
-
-    # ---------- clientes ----------
-    def _alta_cliente(self, identificador, nombre, correo, contacto):
-        if not isinstance(identificador, int) or isinstance(identificador, bool) or identificador <= 0:
-            raise ValueError("El identificador del cliente debe ser un entero positivo")
-        if self._existe(self.__clientes, identificador):
-            raise ErrorRegistro(f"Ya existe un cliente con identificador {identificador}")
-        cliente = Cliente(identificador, nombre, correo, contacto)   # valida en el constructor
         self.__clientes.append(cliente)
-        return cliente
+        return "Cliente registrado correctamente"
 
-    def registrar_cliente(self, identificador, nombre, correo, contacto):
-        return self._ejecutar(f"Registrar cliente {identificador} ({nombre})",
-                              self._alta_cliente, identificador, nombre, correo, contacto)
+    # Registrar servicios
+    def registrar_servicio(self, servicio):
 
-    # ---------- servicios ----------
-    def _alta_servicio(self, tipo, **parametros):
-        clase = self.TIPOS_SERVICIO.get(tipo)
-        if clase is None:
-            raise ErrorRegistro(f"Tipo de servicio inexistente: '{tipo}'")
-        try:
-            servicio = clase(**parametros)                # puede lanzar TypeError o ValueError
-        except TypeError as error:                        # faltan o sobran parámetros
-            raise ErrorParametros(f"Parámetros incorrectos para el servicio '{tipo}'") from error
-        if self._existe(self.__servicios, servicio.codigo):
-            raise ErrorRegistro(f"Ya existe un servicio con código {servicio.codigo}")
+        if not isinstance(servicio, Servicio):
+            raise ValueError("Debe ingresar un servicio válido")
+
+        for registrado in self.__servicios:
+            if registrado.codigo == servicio.codigo:
+                raise ValueError("Ya existe un servicio con ese código")
+
         self.__servicios.append(servicio)
-        return servicio
+        return "Servicio registrado correctamente"
 
-    def crear_servicio(self, tipo, **parametros):
-        return self._ejecutar(f"Crear servicio tipo '{tipo}'", self._alta_servicio, tipo, **parametros)
+    # Registrar reservas
+    def registrar_reserva(self, reserva):
 
-    # ---------- reservas ----------
-    def _alta_reserva(self, codigo, id_cliente, codigo_servicio, cantidad):
-        if self._existe(self.__reservas, codigo):
-            raise ErrorRegistro(f"Ya existe una reserva con código {codigo}")
-        cliente = self._buscar(self.__clientes, id_cliente, "Cliente")
-        servicio = self._buscar(self.__servicios, codigo_servicio, "Servicio")
-        reserva = Reserva(codigo, cliente, servicio, cantidad)       # valida en el constructor
+        if not isinstance(reserva, Reserva):
+            raise ValueError("Debe ingresar una reserva válida")
+
+        # Evitar códigos de reserva repetidos
+        for registrada in self.__reservas:
+            if registrada.codigo == reserva.codigo:
+                raise ErrorReserva("Ya existe una reserva con ese código")
+
+        # Verificar que el cliente esté registrado
+        if not any(cliente is reserva.cliente
+            for cliente in self.__clientes):
+            raise ErrorReserva("El cliente no está registrado en el sistema")
+
+        # Verificar que el servicio esté registrado
+        if not any(servicio is reserva.servicio
+            for servicio in self.__servicios):
+            raise ErrorReserva("El servicio no está registrado en el sistema")
+
+        # Verificar el estado inicial
+        if reserva.estado != "Pendiente":
+            raise ErrorReserva("Solo se pueden registrar reservas pendientes")
+
         self.__reservas.append(reserva)
-        return reserva
+        return "Reserva registrada correctamente"
 
-    def crear_reserva(self, codigo, id_cliente, codigo_servicio, cantidad):
-        return self._ejecutar(f"Crear reserva {codigo} (cliente {id_cliente}, servicio {codigo_servicio}, cantidad {cantidad})",
-                              self._alta_reserva, codigo, id_cliente, codigo_servicio, cantidad)
+    # Confirmar reservas con impuestos y descuentos opcionales
+    def confirmar_reserva(self, reserva, impuesto=0, descuento=0):
 
-    def confirmar_reserva(self, codigo):
-        return self._ejecutar(f"Confirmar reserva {codigo}",
-                              lambda: self._buscar(self.__reservas, codigo, "Reserva").confirmar_reserva())
+        # Verificar que la reserva exista en el sistema
+        if not any(registrada is reserva
+            for registrada in self.__reservas):
+            raise ErrorReserva("La reserva no está registrada en el sistema")
 
-    def cancelar_reserva(self, codigo):
-        return self._ejecutar(f"Cancelar reserva {codigo}",
-                              lambda: self._buscar(self.__reservas, codigo, "Reserva").cancelar_reserva())
+        # Comprobar el estado
+        if reserva.estado != "Pendiente":
+            raise ErrorReserva("Solo se pueden confirmar reservas pendientes")
 
-    def procesar_reserva(self, codigo, descuento=None):
-        return self._ejecutar(f"Procesar reserva {codigo} (descuento={descuento!r})",
-                              lambda: self._buscar(self.__reservas, codigo, "Reserva").procesar(descuento=descuento))
+        # Evitar conflictos con otras reservas confirmadas
+        for registrada in self.__reservas:
+            if (registrada is not reserva
+                    and registrada.servicio is reserva.servicio
+                    and registrada.estado == "Confirmada"):
+                raise ErrorReserva("El servicio ya tiene una reserva confirmada")
 
-    # ---------- reporte ----------
-    def reporte(self):
-        """Resumen general; cada objeto se describe a sí mismo (polimorfismo)."""
-        linea = "=" * 60
-        print(f"\n{linea}\nREPORTE FINAL - SOFTWARE FJ\n{linea}")
-        print(f"Clientes: {len(self.__clientes)} | Servicios: {len(self.__servicios)} | "
-              f"Reservas: {len(self.__reservas)}")
-        print(f"Operaciones exitosas: {self.__exitosas} | Operaciones fallidas: {self.__fallidas}")
-        print("\n--- CLIENTES ---")
-        for c in self.__clientes:
-            print(c.mostrar_info(), end="\n\n")
-        print("--- SERVICIOS ---")
-        for s in self.__servicios:
-            print(s.mostrar_descripcion(), end="\n\n")
-        print("--- RESERVAS ---")
-        for r in self.__reservas:
-            total = f"${r.costo_total:,.2f}" if r.costo_total is not None else "sin calcular"
-            print(r.mostrar_info(), f"\nTotal: {total}", sep="", end="\n\n")
+        # Confirmar aplicando impuestos y descuentos
+        return reserva.confirmar_reserva(impuesto, descuento)
 
+    # Cancelar reservas
+    def cancelar_reserva(self, reserva):
 
-# ======================================================================
-# [NUEVO] PASO 4: PRUEBAS FINALES (simulación de operaciones)
-# ======================================================================
-def main():
-    registrar_evento("=== INICIO DE LA SIMULACIÓN ===")
-    g = GestorSistema()
+        # Verificar que la reserva exista en el sistema
+        if not any(registrada is reserva
+            for registrada in self.__reservas):
+            raise ErrorReserva("La reserva no está registrada en el sistema")
 
-    print("\n--- CLIENTES ---")
-    g.registrar_cliente(1, "Ana Gómez", "ana@correo.com", "3101234567")        # 1  válido
-    g.registrar_cliente(2, "Carlos Ruiz", "carlos@correo.com", "3157654321")   # 2  válido
-    g.registrar_cliente(3, "Luis Pérez", "luis-sin-arroba", "3001112233")      # 3  correo inválido
-    g.registrar_cliente(4, "María Soto", "maria@correo.com", "31012345")       # 4  contacto inválido
-    g.registrar_cliente(1, "Ana Repetida", "otra@correo.com", "3101234567")    # 5  id duplicado
+        return reserva.cancelar_reserva()
 
-    print("\n--- SERVICIOS ---")
-    g.crear_servicio("sala", codigo=101, nombre="Sala Ejecutiva", tarifa_base=50000, disponible=True)       # 6  válido
-    g.crear_servicio("equipo", codigo=201, nombre="Portátil Pro", tarifa_base=30000, disponible=True)       # 7  válido
-    g.crear_servicio("asesoria", codigo=301, nombre="Asesoría Cloud", tarifa_base=120000, disponible=True)  # 8  válido
-    g.crear_servicio("sala", codigo=102, nombre="Sala Rota", tarifa_base=-500, disponible=True)             # 9  tarifa inválida
-    g.crear_servicio("sala", codigo=103, nombre="Sala Incompleta")                                          # 10 faltan parámetros
-    g.crear_servicio("sala", codigo=104, nombre="Sala en Mantenimiento", tarifa_base=40000, disponible=False)  # 11 válido (no disponible)
-    g.crear_servicio("hologramas", codigo=999, nombre="X", tarifa_base=1)                                   # 12 tipo inexistente
+    # Mostrar clientes registrados
+    def mostrar_clientes(self):
 
-    print("\n--- RESERVAS ---")
-    g.crear_reserva(1, 1, 101, 3)        # 13 válida (sala 3 h)
-    g.crear_reserva(2, 2, 101, -4)       # 14 cantidad inválida
-    g.crear_reserva(3, 99, 101, 2)       # 15 cliente inexistente
-    g.crear_reserva(4, 2, 104, 2)        # 16 válida, pero con servicio no disponible
-    g.crear_reserva(5, 2, 301, 2)        # 17 válida (asesoría 2 h)
+        print("\n--- Clientes Registrados ---")
 
-    print("\n--- CONFIRMAR / PROCESAR / CANCELAR ---")
-    g.procesar_reserva(1)                      # 18 procesar sin confirmar (no permitido)
-    g.confirmar_reserva(1)                     # 19 confirmar OK
-    g.confirmar_reserva(1)                     # 20 confirmar dos veces (no permitido)
-    g.procesar_reserva(1, descuento="PROMO10") # 21 procesar con descuento e IVA OK
-    g.procesar_reserva(1)                      # 22 procesar dos veces (no permitido)
-    g.cancelar_reserva(1)                      # 23 cancelar una reserva ya procesada (no permitido)
-    g.confirmar_reserva(4)                     # 24 confirmar con servicio no disponible (error encadenado)
-    g.confirmar_reserva(5)                     # 25 confirmar OK
-    g.procesar_reserva(5, descuento=1.5)       # 26 descuento inconsistente (error encadenado)
-    g.cancelar_reserva(5)                      # 27 cancelar OK
-    g.cancelar_reserva(5)                      # 28 cancelar dos veces (no permitido)
+        if not self.__clientes:
+            print("No hay clientes registrados")
+            return
+        for cliente in self.__clientes:
+            print(cliente.mostrar_info())
+            print("--------------------")
 
-    g.reporte()
+    # Mostrar servicios registrados
+    def mostrar_servicios(self):
 
-    # Demostración de los métodos sobrecargados (Sala, 3 horas, tarifa 50.000)
-    sala = ReservaSala(900, "Sala de prueba", 50000, True)
-    print("--- SOBRECARGA DE CÁLCULO (3 horas, tarifa $50.000) ---")
-    print("Costo base                    :", sala.calcular_costo(3))
-    print("Con IVA 19 %                  :", sala.calcular_costo_con_impuesto(3))
-    print("Descuento 10 % (numérico)     :", sala.calcular_costo_final(3, descuento=0.10))
-    print("Código PROMO10 + IVA          :", sala.calcular_costo_total(3, descuento="PROMO10"))
-    registrar_evento("=== FIN DE LA SIMULACIÓN ===")
+        print("\n---Servicios Registrados---")
 
+        if not self.__servicios:
+            print("No hay servicios registrados")
+            return
+        for servicio in self.__servicios:
+            print(servicio.mostrar_descripcion())
+            print("--------------------")
 
-if __name__ == "__main__":
-    main()
+    # Mostrar reservas registradas
+    def mostrar_reservas(self):
 
+        print("\n--- Reservas Registradas ---")
+
+        if not self.__reservas:
+            print("No hay reservas registradas")
+            return
+        for reserva in self.__reservas:
+            print(reserva.mostrar_info())
+            print("--------------------")
+    
