@@ -3,18 +3,22 @@ import math
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-# Excepciones personaliizadas
+# Excepciones personalizadas
 class ErrorDisponibilidad(Exception):
     pass
 class ErrorReserva(Exception):
     pass
 
-# Funcion para registrar errores
+
+# Función para registrar errores
 def registrar_error(error):
 
     with open("registro_errores.txt", "a", encoding="utf-8") as archivo:
+
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         archivo.write( f"{fecha} - {type(error).__name__}: {error}\n" )
+
 
 # Clase abstracta
 class Entidad(ABC):
@@ -23,22 +27,25 @@ class Entidad(ABC):
     @abstractmethod
     def mostrar_info(self):
         pass
-      
+
+
 # Clase Cliente
 class Cliente(Entidad):
     def __init__(self, identificador, nombre, correo, contacto):
         super().__init__(identificador)
+
         if not isinstance(nombre, str) or not nombre.strip():
-            raise ValueError("El nombre debe ser un texto valido")
-            
+            raise ValueError("El nombre debe ser un texto válido")
+
         if not isinstance(correo, str) or "@" not in correo or "." not in correo:
             raise ValueError("El correo no es válido")
-            
+
         if not isinstance(contacto, str):
-            raise ValueError("El contacti tiene texto")    
+            raise ValueError("El contacto tiene texto ")
+
         if not contacto.isdigit() or len(contacto) != 10:
             raise ValueError("El contacto debe tener 10 dígitos")
-            
+
         self.__nombre = nombre
         self.__correo = correo
         self.__contacto = contacto
@@ -47,6 +54,8 @@ class Cliente(Entidad):
         return (f"Cliente: {self.__nombre}\n"
                 f"Correo: {self.__correo}\n"
                 f"Contacto: {self.__contacto}")
+
+
 
 # Clase abstracta Servicio
 class Servicio(ABC):
@@ -60,8 +69,9 @@ class Servicio(ABC):
 
         if (isinstance(tarifa_base, bool)
                 or not isinstance(tarifa_base, (int, float))
+                or not math.isfinite(tarifa_base)
                 or tarifa_base <= 0):
-            raise ValueError("La tarifa debe ser un número positivo")
+            raise ValueError("La tarifa debe ser un número positivo y finito")
 
         self.__codigo = codigo
         self.__nombre = nombre.strip()
@@ -188,139 +198,132 @@ class AsesoriaEspecializada(Servicio):
         return True
 
 
+
 # Clase Reserva
 class Reserva:
 
     def __init__(self, codigo, cliente, servicio, cantidad):
 
-        if not isinstance(codigo, int) or isinstance(codigo, bool) or codigo <= 0:
-            raise ValueError("El código de reserva debe ser un entero positivo")
+        # Validar el código de la reserva
+        if (not isinstance(codigo, int)
+                or isinstance(codigo, bool)
+                or codigo <= 0):
+            raise ValueError(
+                "El código de reserva debe ser un entero positivo")
 
+        # Validar el cliente
         if not isinstance(cliente, Cliente):
-            raise ValueError("Debe seleccionar un cliente válido")
+            raise ValueError(
+                "Debe seleccionar un cliente válido")
 
+        # Validar el servicio
         if not isinstance(servicio, Servicio):
-            raise ValueError("Debe seleccionar un servicio válido")
+            raise ValueError(
+                "Debe seleccionar un servicio válido")
 
+        # Validar la cantidad de horas o días
         if (isinstance(cantidad, bool)
                 or not isinstance(cantidad, (int, float))
                 or not math.isfinite(cantidad)
                 or cantidad <= 0):
-            raise ValueError("La cantidad debe ser un número positivo y finito")
+            raise ValueError(
+                "La cantidad debe ser un número positivo y finito")
 
+        # Atributos privados
         self.__codigo = codigo
         self.__cliente = cliente
         self.__servicio = servicio
         self.__cantidad = cantidad
         self.__estado = "Pendiente"
 
-    def calcular_costo(self):
-        return self.__servicio.calcular_costo(self.__cantidad)
+    # Propiedades de consulta
+    @property
+    def codigo(self):
+        return self.__codigo
+    @property
+    def cliente(self):
+        return self.__cliente
+    @property
+    def servicio(self):
+        return self.__servicio
+    @property
+    def estado(self):
+        return self.__estado
 
-    def confirmar_reserva(self):
+    # Calcular costo con impuestos y descuentos opcionales
+    def calcular_costo(self, impuesto=0, descuento=0):
+
+        # Validar los porcentajes
+        for nombre, valor in [
+            ("impuesto", impuesto),
+            ("descuento", descuento)]:
+            if (isinstance(valor, bool)
+                    or not isinstance(valor, (int, float))
+                    or not math.isfinite(valor)
+                    or valor < 0
+                    or valor > 1):
+                raise ValueError(
+                    f"El {nombre} debe estar entre 0 y 1")
+
+        # Calcular el costo base
+        costo_base = self.__servicio.calcular_costo(
+            self.__cantidad)
+
+        # Aplicar impuesto y descuento
+        costo_con_impuesto = costo_base * (1 + impuesto)
+        costo_final = costo_con_impuesto * (1 - descuento)
+
+        if not math.isfinite(costo_final):
+            raise ValueError(
+                "El costo final debe ser un número finito")
+
+        return costo_final
+
+    # Confirmar la reserva
+    def confirmar_reserva(self, impuesto=0, descuento=0):
 
         if self.__estado == "Cancelada":
-            raise ErrorReserva("No se puede confirmar una reserva cancelada")
+            raise ErrorReserva(
+                "No se puede confirmar una reserva cancelada")
 
         if self.__estado == "Confirmada":
-            raise ErrorReserva("La reserva ya está confirmada")
+            raise ErrorReserva(
+                "La reserva ya está confirmada" )
         try:
-            # Verificar disponibilidad antes de confirmar
+
+            # Verificar disponibilidad del servicio
             self.__servicio.validar_disponibilidad()
 
-            # Calcular el costo
-            costo = self.calcular_costo()
+            # Calcular costo con los porcentajes indicados
+            costo = self.calcular_costo(impuesto, descuento)
 
         except ErrorDisponibilidad as error:
-            raise ErrorReserva("No se pudo confirmar la reserva: servicio no disponible"
-            ) from error
+            raise ErrorReserva(
+                "No se pudo confirmar la reserva: servicio no disponible") from error
 
+        # Confirmar solamente si las validaciones fueron exitosas
         self.__estado = "Confirmada"
         return costo
 
+    # Cancelar la reserva
     def cancelar_reserva(self):
-        if self.__estado == "Cancelada":
-            raise ErrorReserva("La reserva ya está cancelada")
-        self.__estado = "Cancelada"
-        return True
 
+        if self.__estado == "Cancelada":
+            raise ErrorReserva(
+                "La reserva ya está cancelada")
+
+        self.__estado = "Cancelada"
+        return "Reserva cancelada"
+
+    # Mostrar información de la reserva
     def mostrar_info(self):
-        return (f"Reserva: {self.__codigo}\n"
-                f"{self.__cliente.mostrar_info()}\n"
-                f"Servicio: {self.__servicio.nombre}\n"
-                f"Cantidad: {self.__cantidad}\n"
-                f"Estado: {self.__estado}")
-    def mostrar_descripcion(self):
-        return (f"Servicio: {self.nombre}\n"
-                f"Código: {self.codigo}\n"
-                f"Tarifa por hora: ${self.tarifa_base}")
 
-    def validar_disponibilidad(self):
-        if not self.__disponible:
-            raise ErrorDisponibilidad("El especialista no está disponible")
-        return True
-
-
-# Clase Reserva
-class Reserva:
-
-    def __init__(self, codigo, cliente, servicio, cantidad):
-
-        if not isinstance(codigo, int) or isinstance(codigo, bool) or codigo <= 0:
-            raise ValueError("El código de reserva debe ser un entero positivo")
-
-        if not isinstance(cliente, Cliente):
-            raise ValueError("Debe seleccionar un cliente válido")
-
-        if not isinstance(servicio, Servicio):
-            raise ValueError("Debe seleccionar un servicio válido")
-
-        if (isinstance(cantidad, bool)
-                or not isinstance(cantidad, (int, float))
-                or not math.isfinite(cantidad)
-                or cantidad <= 0):
-            raise ValueError("La cantidad debe ser un número positivo y finito")
-
-        self.__codigo = codigo
-        self.__cliente = cliente
-        self.__servicio = servicio
-        self.__cantidad = cantidad
-        self.__estado = "Pendiente"
-        self.__costo_total = None            # [NUEVO] se calcula al procesar
-
-    def calcular_costo(self):
-        return self.__servicio.calcular_costo(self.__cantidad)
-
-    def confirmar_reserva(self):
-
-        if self.__estado == "Cancelada":
-            raise ErrorReserva("No se puede confirmar una reserva cancelada")
-
-        if self.__estado == "Confirmada":
-            raise ErrorReserva("La reserva ya está confirmada")
-        if self.__estado == "Procesada":     # [NUEVO]
-            raise ErrorReserva("No se puede confirmar una reserva ya procesada")
-        try:
-            # Verificar disponibilidad antes de confirmar
-            self.__servicio.validar_disponibilidad()
-
-            # Calcular el costo
-            costo = self.calcular_costo()
-
-        except ErrorDisponibilidad as error:
-            raise ErrorReserva("No se pudo confirmar la reserva: servicio no disponible"
-            ) from error
-
-        self.__estado = "Confirmada"
-        return costo
-
-    def cancelar_reserva(self):
-        if self.__estado == "Cancelada":
-            raise ErrorReserva("La reserva ya está cancelada")
-        if self.__estado == "Procesada":     # [NUEVO]
-            raise ErrorReserva("No se puede cancelar una reserva ya procesada")
-        self.__estado = "Cancelada"
-        return True
+        return (
+            f"Reserva: {self.__codigo}\n"
+            f"{self.__cliente.mostrar_info()}\n"
+            f"Servicio: {self.__servicio.nombre}\n"
+            f"Cantidad: {self.__cantidad}\n"
+            f"Estado: {self.__estado}")
 
     # ------------------------------------------------------------------
     # [NUEVO] Propiedades de solo lectura (encapsulación) y procesamiento
